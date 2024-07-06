@@ -1,0 +1,407 @@
+---
+title: "HOUSEHOLD EXPENDITURE"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(DT)
+library(gt)
+library(ggplot2)
+library(plotly)
+library(tidyverse)
+```
+
+```{r}
+# Importing Dataset
+data1 <- read_csv("C:\\Users\\LENOVO\\OneDrive\\FILES\\PROGRAMS\\_5R\\DashBoard\\Project\\Maindataset.csv",show_col_types = FALSE)
+```
+
+
+1 DATASET
+=======
+```{r}
+datatable(data1, options = list(lengthMenu = c(25, 50, 100, 500)))
+
+```
+
+
+2 CALCULATED DATA
+===============
+```{r}
+# Calculate additional values
+data1$Average_Income <- rowMeans(data1[, c('Jan Income', 'Feb Income', 'Mar Income', 'Apr Income', 'May Income', 'Jun Income')])
+data1$Total_Income <- rowSums(data1[, c('Jan Income', 'Feb Income', 'Mar Income', 'Apr Income', 'May Income', 'Jun Income')])
+data1$Total_Expenditure <- rowSums(data1[, c('Jan Expenditure', 'Feb Expenditure', 'Mar Expenditure', 'Apr Expenditure', 'May Expenditure', 'Jun Expenditure')])
+data1$Saving <- data1$Total_Income - data1$Total_Expenditure
+
+
+# Display calculated data
+datatable(data1[c('Case ID', 'Economic Position', 'Occupation Type', 'Home', 'Gender', 'Region', 'Jan Income', 'Feb Income', 'Mar Income', 'Apr Income', 'May Income', 'Jun Income', 'Jan Expenditure', 'Feb Expenditure', 'Mar Expenditure', 'Apr Expenditure', 'May Expenditure', 'Jun Expenditure', 'Average_Income', 'Total_Income', 'Total_Expenditure', 'Saving')],
+  options = list(lengthMenu = c(25, 50, 100, 500), pageLength = 25))
+```
+
+
+3 ECONOMIC POSITION
+=================
+
+Column {data-width=5000}
+----------------------------------------
+### Calculated Table
+```{r}
+# Count occurrences of each unique value in the "Economic Position" column
+economic_position_count <- table(data1$`Economic Position`)
+
+# Create a data frame with Economic Position and ID columns
+economic_position_data <- data.frame(
+  Economic_Position = names(economic_position_count),
+  Count_of_Persons = as.vector(economic_position_count)
+)
+
+# Display Economic Position data
+gt(economic_position_data)
+```
+
+### Conclusion
+```{r}
+# Count occurrences of each unique value in the "Economic Position" column
+economic_position_count <- table(data1$`Economic Position`)
+
+# Create a data frame with Economic Position and ID columns
+economic_position_data <- data.frame(
+  Economic_Position = names(economic_position_count),
+  Count_of_Persons = as.vector(economic_position_count)
+)
+
+# Calculate grand total
+grand_total <- sum(economic_position_data$Count_of_Persons)
+
+# Add conclusions
+conclusions <- data.frame(
+  Conclusion = c(
+    "Total count of Economic Position is :",
+    "Highest position is Full-Time Work:",
+    "Lowest position is Training Program:"
+  ),
+  Value = c(
+    grand_total,
+    max(economic_position_data$Count_of_Persons),
+    min(economic_position_data$Count_of_Persons)
+  )
+)
+
+# Display conclusions
+gt(conclusions)
+```
+
+Column {data-width=5000}
+----------------------------------------
+### Chart A
+```{r}
+# Convert the calculated table to a Plotly bar chart with adjusted bar thickness
+plotly_chart <- plot_ly(economic_position_data, x = ~Economic_Position, y = ~Count_of_Persons, type = "bar", marker = list(color = "skyblue", width = 0.5)) %>%
+  layout(title = "Economic Position Distribution",
+         xaxis = list(title = "Economic Position"),
+         yaxis = list(title = "Count of Persons"))
+
+# Show the Plotly chart
+plotly_chart
+
+```
+
+4_Average Income _ Toatl Income
+================================
+Column {data-width=5000}
+-------------------------
+### Average Income & Total Income
+```{r}
+# Calculate average income and total income by economic position
+average_total_income <- data1 %>%
+  group_by(`Economic Position`) %>%
+  summarise(
+    Average_Income = mean(`Total_Income`, na.rm = TRUE),
+    Total_Income = sum(`Total_Income`, na.rm = TRUE)
+  ) %>%
+  bind_rows(summarise(., `Economic Position` = "Grand Total", Average_Income = mean(Average_Income), Total_Income = sum(Total_Income)))
+
+# Display the table for average income and total income
+gt(average_total_income)
+```
+### Conclusion
+```{r}
+# Create the conclusion table
+conclusion <- data.frame(
+  Category = c("Grand Total of Average Income", "Grand Total of Total Income",
+               "Highest Average income is", "Highest Total income is",
+               "Lowest Average income is", "Lowest Total income is"),
+  Value = c(mean(average_total_income$Average_Income), sum(average_total_income$Total_Income),
+            max(data1$Average_Income), max(data1$Total_Income),
+            min(data1$Average_Income), min(data1$Total_Income))
+)
+
+# Add row numbers
+conclusion <- cbind(Row = 1:nrow(conclusion), conclusion)
+
+# Insert empty rows after the first two rows
+conclusion <- rbind(conclusion[1:2, ],
+                    data.frame(Row = " ", Category = " ", Value = " "),
+                    conclusion[3:4, ],
+                    data.frame(Row = " ", Category = " ", Value = " "),
+                    conclusion[5:nrow(conclusion), ])
+
+# Display the conclusion table
+gt(conclusion)
+```
+
+Column {data-width=5000}
+--------------------------
+### Chart B
+```{r}
+# States having Poverty greater than 30 for the year 2011
+
+library(plotly)
+
+# Filter out the "Grand Total" row
+average_total_income_filtered <- average_total_income %>%
+  filter(`Economic Position` != "Grand Total")
+
+# Create the line chart
+p <- average_total_income_filtered %>%
+  plot_ly(x = ~`Economic Position`, 
+          y = ~Average_Income,
+          type = 'scatter',
+          mode = 'lines',
+          line = list(color = 'orange'),
+          name = 'Average Income') %>%
+  add_trace(y = ~Total_Income,
+            type = 'scatter',
+            mode = 'lines',
+            line = list(color = 'skyblue'),
+            name = 'Total Income') %>%
+  layout(xaxis = list(title = "Economic Position"),
+         yaxis = list(title = 'Income'),
+         title = "Income Distribution by Economic Position")
+
+p
+
+```
+
+5. Total Income _ Toatl Saving
+==============================
+Column {data-width=5000}
+-------------------------
+### Total Income & Total Saving
+```{r}
+# Calculate sum of total income and total saving by economic position
+total_income_saving <- data1 %>%
+  group_by(`Economic Position`) %>%
+  summarise(
+    `Total Income` = sum(Total_Income, na.rm = TRUE),
+    `Total Saving` = sum(Saving, na.rm = TRUE)
+  ) %>%
+  bind_rows(summarise(data1, `Economic Position` = "Grand Total", `Total Income` = sum(Total_Income), `Total Saving` = sum(Saving)))
+
+# Display the table
+gt(total_income_saving)
+
+```
+
+### Conclusion
+```{r}
+# Create the conclusion table
+conclusion_income_saving <- data.frame(
+  Category = c("Grand Total of Total Income", "Grand Total of Total Saving",
+               "Highest Income is", "Highest Saving is",
+               "Lowest Income is", "Lowest Saving is"),
+  Value = c(sum(total_income_saving$`Total Income`), sum(total_income_saving$`Total Saving`),
+            max(total_income_saving$`Total Income`), max(total_income_saving$`Total Saving`),
+            min(total_income_saving$`Total Income`), min(total_income_saving$`Total Saving`)
+            )
+)
+
+# Display the conclusion table
+gt(conclusion_income_saving)
+
+```
+
+Column {data-width=5000}
+------------------------
+### Chart B
+```{r}
+# Calculate sum of total income and total saving by economic position
+total_income_saving <- data1 %>%
+  group_by(`Economic Position`) %>%
+  summarise(
+    `Total Income` = sum(Total_Income, na.rm = TRUE),
+    `Total Saving` = sum(Saving, na.rm = TRUE)
+  ) %>%
+  bind_rows(data.frame(`Economic Position` = "Grand Total", `Total Income` = sum(data1$Total_Income, na.rm = TRUE), `Total Saving` = sum(data1$Saving, na.rm = TRUE)))
+
+# Create the plotly chart for total income and total saving
+plotly_chart_income_saving <- plot_ly(total_income_saving, x = ~`Economic Position`, y = ~`Total Income`, type = "bar", name = "Total Income", marker = list(color = "skyblue")) %>%
+  add_trace(y = ~`Total Saving`, name = "Total Saving", marker = list(color = "orange")) %>%
+  layout(title = "Total Income & Total Saving",
+         xaxis = list(title = "Economic Position"),
+         yaxis = list(title = "Amount"))
+
+# Show the plotly chart
+plotly_chart_income_saving
+
+```
+
+
+6.Total Income _ Toatl Expenditure
+==================================
+Column {data-width=5000}
+-------------------------
+### Total Income & Total Expenditure
+```{r}
+# Calculate sum of total income and total expenditure by economic position
+total_income_expenditure <- data1 %>%
+  group_by(`Economic Position`) %>%
+  summarise(
+    `Total Income` = sum(`Total_Income`, na.rm = TRUE),
+    `Total Expenditure` = sum(`Total_Expenditure`, na.rm = TRUE)
+  ) %>%
+  bind_rows(summarise(., `Economic Position` = "Grand Total", `Total Income` = sum(`Total Income`), `Total Expenditure` = sum(`Total Expenditure`)))
+
+# Display the table
+gt(total_income_expenditure)
+```
+### Conclusion
+```{r}
+# Create the conclusion table
+conclusion_income_expenditure <- data.frame(
+  Category = c("Grand Total of Total Income", "Grand Total of Total Expenditure",
+               "Highest Total Income is", "Highest Total Expenditure is",
+               "Lowest Total Income is", "Lowest Total Expenditure is"),
+  Value = c(sum(data1$`Total_Income`, na.rm = TRUE), sum(data1$`Total_Expenditure`, na.rm = TRUE),
+            max(data1$`Total_Income`, na.rm = TRUE), max(data1$`Total_Expenditure`, na.rm = TRUE),
+            min(data1$`Total_Income`, na.rm = TRUE), min(data1$`Total_Expenditure`, na.rm = TRUE))
+)
+
+# Display the conclusion table
+gt(conclusion_income_expenditure)
+```
+Column {data-width=5000}
+--------------------------
+### Chart B
+```{r}
+# Create the clustered bar chart for total income and total expenditure
+# Create the grouped bar chart for total income and total expenditure
+grouped_bar_chart <- ggplot(total_income_expenditure, aes(x = `Economic Position`)) +
+  geom_bar(aes(y = `Total Income`, fill = "Total Income"), position = "dodge", stat = "identity", width = 0.4) +
+  geom_bar(aes(y = `Total Expenditure`, fill = "Total Expenditure"), position = position_dodge(width = 0.9), stat = "identity", width = 0.4) +
+  labs(title = "Total Income & Total Expenditure by Economic Position", x = "Economic Position", y = "Amount", fill = NULL) +
+  scale_fill_manual(values = c("Total Income" = "skyblue", "Total Expenditure" = "orange")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Show the grouped bar chart
+print(grouped_bar_chart)
+
+```
+
+
+DASHBOARD
+==========
+
+Row
+-----
+
+### **Economic Position**
+
+```{r}
+# Convert the calculated table to a Plotly bar chart with adjusted bar thickness
+plotly_chart <- plot_ly(economic_position_data, x = ~Economic_Position, y = ~Count_of_Persons, type = "bar", marker = list(color = "skyblue", width = 0.5)) %>%
+  layout(title = "Economic Position Distribution",
+         xaxis = list(title = "Economic Position"),
+         yaxis = list(title = "Count of Persons"))
+
+# Show the Plotly chart
+plotly_chart
+
+```
+
+
+### **Average Income and Total Income Per Economic Position**
+
+```{r}
+# Filter out the "Grand Total" row
+average_total_income_filtered <- average_total_income %>%
+  filter(`Economic Position` != "Grand Total")
+
+# Create a Plotly area chart with data labels
+p <- average_total_income_filtered %>%
+  plot_ly(x = ~`Economic Position`, 
+          y = ~Average_Income,
+          type = 'scatter',
+          mode = 'lines+markers',
+          fill = 'tozeroy',
+          line = list(color = 'orange'),
+          name = 'Average Income',
+          text = ~paste("Average Income:", round(Average_Income, 2)),
+          hoverinfo = "text") %>%
+  add_trace(y = ~Total_Income,
+            type = 'scatter',
+            mode = 'lines+markers',
+            fill = 'tonexty',
+            line = list(color = 'skyblue'),
+            name = 'Total Income',
+            text = ~paste("Total Income:", round(Total_Income, 2)),
+            hoverinfo = "text") %>%
+  layout(xaxis = list(title = "Economic Position"),
+         yaxis = list(title = 'Income'),
+         title = "Income Distribution by Economic Position")
+
+p
+```
+
+Row
+----
+
+### Dashboard
+
+```{r}
+
+valueBox(paste("Household Expenditure"),color = "skyblue")
+
+```
+
+### **Total Income and Total Saving per Economic Position**
+
+```{r}
+plotly_chart_income_saving <- plot_ly(total_income_saving, x = ~`Economic Position`, y = ~`Total Income`, type = "scatter", mode = "lines+markers", marker = list(size = 10, color = "skyblue"), name = "Total Income", text = ~paste("Total Income:", round(`Total Income`, 2)), hoverinfo = "text") %>%
+  add_trace(y = ~`Total Saving`, marker = list(size = 10, color = "orange"), name = "Total Saving", text = ~paste("Total Saving:", round(`Total Saving`, 2)), hoverinfo = "text") %>%
+  layout(title = "Total Income & Total Saving",
+         xaxis = list(title = "Economic Position"),
+         yaxis = list(title = "Amount"))
+
+# Show the Plotly line chart
+plotly_chart_income_saving
+```
+
+
+Row
+----
+
+### **Total Income and Total Expenditure**
+
+```{r}
+# Create a Plotly grouped bar chart with data labels
+plotly_chart_income_expenditure <- plot_ly(total_income_expenditure, x = ~`Economic Position`, y = ~`Total Income`, type = "bar", name = "Total Income", marker = list(color = "skyblue"), text = ~paste("Total Income:", round(`Total Income`, 2)), hoverinfo = "text") %>%
+  add_trace(y = ~`Total Expenditure`, name = "Total Expenditure", marker = list(color = "orange"), text = ~paste("Total Expenditure:", round(`Total Expenditure`, 2)), hoverinfo = "text") %>%
+  layout(title = "Total Income & Total Expenditure",
+         xaxis = list(title = "Economic Position"),
+         yaxis = list(title = "Amount"))
+
+# Show the Plotly grouped bar chart
+plotly_chart_income_expenditure
+```
+
+
+
+
+
